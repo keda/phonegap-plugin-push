@@ -27,16 +27,34 @@ import java.util.List;
 
 import me.leolin.shortcutbadger.ShortcutBadger;
 
-public class PushPlugin extends CordovaPlugin implements PushConstants {
+public class PushPlugin extends CordovaPlugin {
 
     public static final String LOG_TAG = "PushPlugin";
+
+    public static final String COM_DESINTON_PUSH = "com.desinton.push";
+
+    public static final String CLEAR_NOTIFICATIONS = "clearNotifications";
+
+    public static final String TITLE = "title";
+
+    public static final String MESSAGE = "message";
+
+    public static final String COUNT = "count";
+
+    public static final String SOUND = "sound";
+
+    public static final String IMAGE = "image";
+
+    public static final String COLDSTART = "coldstart";
+
+    public static final String FOREGROUND = "foreground";
+
+    public static final String ADDITIONAL_DATA = "additionalData";
 
     private static CallbackContext pushContext;
     private static CordovaWebView gWebView;
     private static List<Bundle> gCachedExtras = Collections.synchronizedList(new ArrayList<Bundle>());
     private static boolean gForeground = false;
-
-    private static String registration_id = "";
 
     /**
      * Gets the application context from cordova's main activity.
@@ -58,178 +76,15 @@ public class PushPlugin extends CordovaPlugin implements PushConstants {
                     JSONObject jo = null;
 
                     Log.v(LOG_TAG, "execute: data=" + data.toString());
-                    SharedPreferences sharedPref = getApplicationContext().getSharedPreferences(COM_ADOBE_PHONEGAP_PUSH, Context.MODE_PRIVATE);
-                    String senderID = null;
 
-                    try {
-                        jo = data.getJSONObject(0).getJSONObject(ANDROID);
-
-                        Log.v(LOG_TAG, "execute: jo=" + jo.toString());
-
-                        senderID = jo.getString(SENDER_ID);
-
-                        Log.v(LOG_TAG, "execute: senderID=" + senderID);
-
-                        String savedSenderID = sharedPref.getString(SENDER_ID, "");
-                        registration_id = InstanceID.getInstance(getApplicationContext()).getToken(senderID, GCM);
-
-                        if (!"".equals(registration_id)) {
-                            JSONObject json = new JSONObject().put(REGISTRATION_ID, registration_id);
-
-                            Log.v(LOG_TAG, "onRegistered: " + json.toString());
-
-                            JSONArray topics = jo.optJSONArray(TOPICS);
-                            subscribeToTopics(topics, registration_id);
-
-                            PushPlugin.sendEvent( json );
-                        } else {
-                            callbackContext.error("Empty registration ID received from GCM");
-                            return;
-                        }
-                    } catch (JSONException e) {
-                        Log.e(LOG_TAG, "execute: Got JSON Exception " + e.getMessage());
-                        callbackContext.error(e.getMessage());
-                    } catch (IOException e) {
-                        Log.e(LOG_TAG, "execute: Got JSON Exception " + e.getMessage());
-                        callbackContext.error(e.getMessage());
-                    }
-
-                    if (jo != null) {
-                        SharedPreferences.Editor editor = sharedPref.edit();
-                        try {
-                            editor.putString(ICON, jo.getString(ICON));
-                        } catch (JSONException e) {
-                            Log.d(LOG_TAG, "no icon option");
-                        }
-                        try {
-                            editor.putString(ICON_COLOR, jo.getString(ICON_COLOR));
-                        } catch (JSONException e) {
-                            Log.d(LOG_TAG, "no iconColor option");
-                        }
-
-                        boolean clearBadge = jo.optBoolean(CLEAR_BADGE, false);
-                        if (clearBadge) {
-                            setApplicationIconBadgeNumber(getApplicationContext(), 0);
-                        }
-
-                        editor.putBoolean(SOUND, jo.optBoolean(SOUND, true));
-                        editor.putBoolean(VIBRATE, jo.optBoolean(VIBRATE, true));
-                        editor.putBoolean(CLEAR_BADGE, clearBadge);
-                        editor.putBoolean(CLEAR_NOTIFICATIONS, jo.optBoolean(CLEAR_NOTIFICATIONS, true));
-                        editor.putBoolean(FORCE_SHOW, jo.optBoolean(FORCE_SHOW, false));
-                        editor.putString(SENDER_ID, senderID);
-                        editor.commit();
-
-                    }
-
-                    if (!gCachedExtras.isEmpty()) {
-                        Log.v(LOG_TAG, "sending cached extras");
-                        synchronized(gCachedExtras) {
-                            Iterator<Bundle> gCachedExtrasIterator = gCachedExtras.iterator();
-                            while (gCachedExtrasIterator.hasNext()) {
-                                sendExtras(gCachedExtrasIterator.next());
-                            }
-                        }
-                        gCachedExtras.clear();
-                    }
-                }
-            });
-        } else if (UNREGISTER.equals(action)) {
-            cordova.getThreadPool().execute(new Runnable() {
-                public void run() {
-                    try {
-                        SharedPreferences sharedPref = getApplicationContext().getSharedPreferences(COM_ADOBE_PHONEGAP_PUSH, Context.MODE_PRIVATE);
-                        JSONArray topics = data.optJSONArray(0);
-                        if (topics != null && !"".equals(registration_id)) {
-                            unsubscribeFromTopics(topics, registration_id);
-                        } else {
-                            InstanceID.getInstance(getApplicationContext()).deleteInstanceID();
-                            Log.v(LOG_TAG, "UNREGISTER");
-
-                            // Remove shared prefs
-                            SharedPreferences.Editor editor = sharedPref.edit();
-                            editor.remove(SOUND);
-                            editor.remove(VIBRATE);
-                            editor.remove(CLEAR_BADGE);
-                            editor.remove(CLEAR_NOTIFICATIONS);
-                            editor.remove(FORCE_SHOW);
-                            editor.remove(SENDER_ID);
-                            editor.commit();
-                        }
-
-                        callbackContext.success();
-                    } catch (IOException e) {
-                        Log.e(LOG_TAG, "execute: Got JSON Exception " + e.getMessage());
-                        callbackContext.error(e.getMessage());
-                    }
-                }
-            });
-        } else if (FINISH.equals(action)) {
-            callbackContext.success();
-        } else if (HAS_PERMISSION.equals(action)) {
-            cordova.getThreadPool().execute(new Runnable() {
-                public void run() {
-                    JSONObject jo = new JSONObject();
-                    try {
-                        jo.put("isEnabled", PermissionUtils.hasPermission(getApplicationContext(), "OP_POST_NOTIFICATION"));
-                        PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, jo);
-                        pluginResult.setKeepCallback(true);
-                        callbackContext.sendPluginResult(pluginResult);
-                    } catch (UnknownError e) {
-                        callbackContext.error(e.getMessage());
-                    } catch (JSONException e) {
-                        callbackContext.error(e.getMessage());
-                    }
-                }
-            });
-        } else if (SET_APPLICATION_ICON_BADGE_NUMBER.equals(action)) {
-            cordova.getThreadPool().execute(new Runnable() {
-                public void run() {
-                    Log.v(LOG_TAG, "setApplicationIconBadgeNumber: data=" + data.toString());
-                    try {
-                        setApplicationIconBadgeNumber(getApplicationContext(), data.getJSONObject(0).getInt(BADGE));
-                    } catch (JSONException e) {
-                        callbackContext.error(e.getMessage());
-                    }
-                    callbackContext.success();
-                }
-            });
-        } else if (CLEAR_ALL_NOTIFICATIONS.equals(action)) {
-            cordova.getThreadPool().execute(new Runnable() {
-                public void run() {
-                    Log.v(LOG_TAG, "clearAllNotifications");
-                    clearAllNotifications();
-                    callbackContext.success();
-                }
-            });
-        } else if (SUBSCRIBE.equals(action)){
-            // Subscribing for a topic
-            cordova.getThreadPool().execute(new Runnable() {
-                public void run() {
-                    try {
-                        String topic = data.getString(0);
-                        subscribeToTopic(topic, registration_id);
-                        callbackContext.success();
-                    } catch (JSONException e) {
-                        callbackContext.error(e.getMessage());
-                    } catch (IOException e) {
-                        callbackContext.error(e.getMessage());
-                    }
-                }
-            });
-        } else if (UNSUBSCRIBE.equals(action)){
-            // un-subscribing for a topic
-            cordova.getThreadPool().execute(new Runnable(){
-                public void run() {
-                    try {
-                        String topic = data.getString(0);
-                        unsubscribeFromTopic(topic, registration_id);
-                        callbackContext.success();
-                    } catch (JSONException e) {
-                        callbackContext.error(e.getMessage());
-                    } catch (IOException e) {
-                        callbackContext.error(e.getMessage());
-                    }
+                    jo = data.getJSONObject(0).getJSONObject("android");
+                    String apiKey = jo.getString("api_key");
+                    Log.v(LOG_TAG, "开始启动百度推送.......");
+                    // 启动百度push
+                    PushManager.startWork(getApplicationContext(), PushConstants.LOGIN_TYPE_API_KEY, apiKey);
+                    // Push: 如果想基于地理位置推送，可以打开支持地理位置的推送的开关
+                    // PushManager.enableLbs(getApplicationContext());
+                    Log.v(LOG_TAG, "成功启动百度推送");
                 }
             });
         } else {
@@ -291,7 +146,7 @@ public class PushPlugin extends CordovaPlugin implements PushConstants {
         super.onPause(multitasking);
         gForeground = false;
 
-        SharedPreferences prefs = getApplicationContext().getSharedPreferences(COM_ADOBE_PHONEGAP_PUSH, Context.MODE_PRIVATE);
+        SharedPreferences prefs = getApplicationContext().getSharedPreferences(COM_DESINTON_PUSH, Context.MODE_PRIVATE);
         if (prefs.getBoolean(CLEAR_NOTIFICATIONS, true)) {
             clearAllNotifications();
         }

@@ -22,7 +22,7 @@
     <platform name="android">
         <config-file target="res/xml/config.xml" parent="/*">
             <feature name="PushNotification">
-                <param name="android-package" value="com.adobe.phonegap.push.PushPlugin"/>
+                <param name="android-package" value="com.desinton.push.PushPlugin"/>
             </feature>
         </config-file>
         <config-file target="res/values/strings.xml" parent="/resources">
@@ -44,12 +44,16 @@
             <uses-permission android:name="android.permission.ACCESS_DOWNLOAD_MANAGER"/>
             <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION"/>
             <uses-permission android:name="android.permission.EXPAND_STATUS_BAR"/>
+
+            <!-- 适配Android N系统必需的ContentProvider写权限声明，写权限包含应用包名-->
+            <uses-permission android:name="baidu.push.permission.WRITE_PUSHINFOPROVIDER.com.desinton" />
+            <permission
+                android:name="baidu.push.permission.WRITE_PUSHINFOPROVIDER.com.desinton"
+                android:protectionLevel="normal">
+            </permission>
+
         </config-file>
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <!--
-            <activity android:name="com.adobe.phonegap.push.PushHandlerActivity" android:exported="true"/>
-            <receiver android:name="com.adobe.phonegap.push.BackgroundActionButtonHandler"/>
-            -->
             <!-- push service start -->
             <!-- 用于接收系统消息以保证PushService正常运行 -->
             <receiver android:name="com.baidu.android.pushservice.PushServiceReceiver" android:process=":bdservice_v1">
@@ -78,6 +82,17 @@
                 </intent-filter>
             </receiver>
 
+            <!-- push应用定义消息receiver声明 -->
+            <receiver android:name="com.desinton.push.MyPushMessageReceiver" >
+                <intent-filter>
+                    <!-- 接收push消息 -->
+                    <action android:name="com.baidu.android.pushservice.action.MESSAGE" />
+                    <!-- 接收bind,unbind,fetch,delete等反馈消息 -->
+                    <action android:name="com.baidu.android.pushservice.action.RECEIVE" />
+                    <action android:name="com.baidu.android.pushservice.action.notification.CLICK" />
+                </intent-filter>
+            </receiver>
+
             <service android:name="com.baidu.android.pushservice.PushService" android:exported="true"
                      android:process=":bdservice_v1">
                 <intent-filter>
@@ -88,19 +103,6 @@
             <service android:name="com.baidu.android.pushservice.CommandService" android:exported="true"/>
             <!-- push结束 -->
 
-            <!--
-            <service android:name="com.adobe.phonegap.push.GCMIntentService" android:exported="false">
-            <intent-filter>
-            <action android:name="com.google.android.c2dm.intent.RECEIVE"/>
-            </intent-filter>
-            </service>
-            <service android:name="com.adobe.phonegap.push.PushInstanceIDListenerService" android:exported="false">
-            <intent-filter>
-            <action android:name="com.google.android.gms.iid.InstanceID"/>
-            </intent-filter>
-            </service>
-            <service android:name="com.adobe.phonegap.push.RegistrationIntentService" android:exported="false"/>
-            -->
         </config-file>
         <framework src="push.gradle" custom="true" type="gradleReference"/>
         <framework src="com.android.support:support-v13:23+"/>
@@ -109,14 +111,7 @@
 
         <source-file src="src/android/libs/pushservice-5.2.0.12.jar" target-dir="src/android/libs"/>
 
-        <!--<source-file src="src/android/com/adobe/phonegap/push/GCMIntentService.java" target-dir="src/com/adobe/phonegap/push/"/>-->
-        <!--<source-file src="src/android/com/adobe/phonegap/push/PushConstants.java" target-dir="src/com/adobe/phonegap/push/"/>-->
-        <!--<source-file src="src/android/com/adobe/phonegap/push/PushHandlerActivity.java" target-dir="src/com/adobe/phonegap/push/"/>-->
-        <!--<source-file src="src/android/com/adobe/phonegap/push/PushInstanceIDListenerService.java" target-dir="src/com/adobe/phonegap/push/"/>-->
-        <!--<source-file src="src/android/com/adobe/phonegap/push/PushPlugin.java" target-dir="src/com/adobe/phonegap/push/"/>-->
-        <!--<source-file src="src/android/com/adobe/phonegap/push/RegistrationIntentService.java" target-dir="src/com/adobe/phonegap/push/"/>-->
-        <!--<source-file src="src/android/com/adobe/phonegap/push/PermissionUtils.java" target-dir="src/com/adobe/phonegap/push/"/>-->
-        <!--<source-file src="src/android/com/adobe/phonegap/push/BackgroundActionButtonHandler.java" target-dir="src/com/adobe/phonegap/push/"/>-->
+        <source-file src="src/android/com/desinton/push/MyPushMessageReceiver.java" target-dir="src/com/desinton/push/"/>
     </platform>
     <platform name="browser">
         <js-module src="www/browser/push.js" name="BrowserPush">
